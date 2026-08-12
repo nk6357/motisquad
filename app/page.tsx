@@ -4,18 +4,9 @@ import { FormEvent, useEffect, useRef, useState } from "react";
 
 type Path = "founder" | "talent";
 type AuthMode = "login" | "register";
-
-const projects = [
-  { name: "Vozduh", mark: "V", category: "EdTech", title: "Frontend-разработчик", level: "Без опыта", format: "Удалённо", team: "3 человека", accent: "#D6F238" },
-  { name: "Locus", mark: "L", category: "AI · Productivity", title: "Junior ML-инженер", level: "Junior", format: "Гибрид", team: "5 человек", accent: "#B8C6FF" },
-  { name: "Sreda", mark: "С", category: "SocialTech", title: "UX/UI-дизайнер", level: "Без опыта", format: "Удалённо", team: "2 человека", accent: "#FFB9A8" },
-];
-
-const talent = [
-  { initials: "АК", name: "Алина Ким", role: "Product designer", level: "Junior", stack: "Figma · Research · JTBD" },
-  { initials: "МВ", name: "Миша Ветров", role: "Frontend developer", level: "Без опыта", stack: "React · TypeScript · CSS" },
-  { initials: "СА", name: "Саша Алимов", role: "Data analyst", level: "Junior", stack: "Python · SQL · BI" },
-];
+type Project = { id:string;name:string;category:string;title:string;description:string;specialization:string;level:string;format:string;teamSize:number };
+type Talent = { id:string;name:string;role:string;specialization:string;level:string;format:string;bio:string;stack:string };
+type User = { id:string;name:string;role:Path;email?:string };
 
 function SignalCanvas() {
   const ref = useRef<HTMLCanvasElement>(null);
@@ -74,42 +65,80 @@ function SignalCanvas() {
   return <canvas ref={ref} className="signal-canvas" aria-label="Визуализация активности сообщества" />;
 }
 
+function PublishForm({role,name,onSaved}:{role:Path;name:string;onSaved:()=>Promise<void>}){
+  const [status,setStatus]=useState("");
+  const submit=async(event:FormEvent<HTMLFormElement>)=>{event.preventDefault();setStatus("Сохраняем…");const data=new FormData(event.currentTarget);
+    const common={specialization:String(data.get("specialization")),level:String(data.get("level")),format:String(data.get("format")),published:data.get("published")==="on"};
+    const payload=role==="founder"?{...common,name:String(data.get("projectName")),category:String(data.get("category")),title:String(data.get("title")),description:String(data.get("description")),teamSize:Number(data.get("teamSize"))}:{...common,name:String(data.get("name")),role,bio:String(data.get("bio")),stack:String(data.get("stack"))};
+    const response=await fetch(role==="founder"?"/api/projects":"/api/profile",{method:role==="founder"?"POST":"PUT",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload)});const result=await response.json();if(!response.ok){setStatus(result.error||"Не удалось сохранить");return}setStatus("Опубликовано");await onSaved()};
+  return <form className="publish-form" onSubmit={submit}>
+    {role==="founder"?<>
+      <label className="account-field">Название проекта<input name="projectName" required minLength={2} maxLength={80} placeholder="Например, Locus" /></label>
+      <label className="account-field">Категория<input name="category" required minLength={2} maxLength={80} placeholder="EdTech, AI, SocialTech…" /></label>
+      <label className="account-field">Кого ищете<input name="title" required minLength={3} maxLength={120} placeholder="Frontend-разработчик" /></label>
+      <label className="account-field">О проекте<textarea name="description" required minLength={20} maxLength={1600} placeholder="Идея, этап и что предстоит сделать вместе" /></label>
+      <label className="account-field">Сейчас в команде<input name="teamSize" type="number" min={1} max={50} defaultValue={1} required /></label>
+    </>:<>
+      <label className="account-field">Имя<input name="name" required minLength={2} maxLength={80} defaultValue={name} /></label>
+      <label className="account-field">Навыки<input name="stack" maxLength={220} placeholder="React · TypeScript · Figma" /></label>
+      <label className="account-field">О себе<input name="bio" maxLength={700} placeholder="Что интересно создавать и какой опыт уже есть" /></label>
+    </>}
+    <label className="account-field">Направление<select name="specialization"><option>Разработка</option><option>Дизайн</option><option>Продукт</option><option>Аналитика</option></select></label>
+    <label className="account-field">Уровень<select name="level"><option>Без опыта</option><option>Junior</option></select></label>
+    <label className="account-field">Формат<select name="format"><option>Удалённо</option><option>Гибрид</option><option>Офлайн</option></select></label>
+    <label className="publish-check"><input name="published" type="checkbox" defaultChecked /> Опубликовать в общем каталоге</label>
+    {status&&<span className="form-notice">{status}</span>}<button className="submit-button" type="submit">{role==="founder"?"Опубликовать проект":"Опубликовать профиль"}<span>→</span></button>
+  </form>
+}
+
 export default function Home() {
   const [path, setPath] = useState<Path>("talent");
   const [authOpen, setAuthOpen] = useState(false);
   const [authMode, setAuthMode] = useState<AuthMode>("register");
   const [menuOpen, setMenuOpen] = useState(false);
   const [accountOpen, setAccountOpen] = useState(false);
-  const [userName, setUserName] = useState("");
+  const [user, setUser] = useState<User | null>(null);
   const [notice, setNotice] = useState("");
   const [resultsOpen, setResultsOpen] = useState(false);
+  const [challengeId,setChallengeId]=useState("");
+  const [challengeEmail,setChallengeEmail]=useState("");
+  const [projects,setProjects]=useState<Project[]>([]);
+  const [talent,setTalent]=useState<Talent[]>([]);
+  const [stats,setStats]=useState({projects:0,talent:0});
+  const [loading,setLoading]=useState(true);
+  const userName=user?.name||"";
 
   useEffect(() => {
-    const stored = window.localStorage.getItem("motisquad-user");
-    if (stored) setUserName(stored);
+    void fetch("/api/public",{cache:"no-store"}).then(response=>response.json()).then(data=>{setProjects(data.projects||[]);setTalent((data.profiles||[]).filter((item:Talent)=>item.role==="talent"));setStats(data.stats||{projects:0,talent:0})}).finally(()=>setLoading(false));
+    void fetch("/api/auth/me",{cache:"no-store"}).then(async response=>{
+      if(response.status===401){const refreshed=await fetch("/api/auth/refresh",{method:"POST"});if(refreshed.ok)return fetch("/api/auth/me",{cache:"no-store"})}
+      return response;
+    }).then(response=>response?.ok?response.json():null).then(data=>{if(data?.user){setUser(data.user);setPath(data.user.role)}}).catch(()=>{});
   }, []);
+
+  const loadPublic=async (filters?:URLSearchParams)=>{setLoading(true);try{const response=await fetch(`/api/public${filters?`?${filters}`:""}`,{cache:"no-store"});const data=await response.json();if(response.ok){setProjects(data.projects);setTalent(data.profiles.filter((item:Talent)=>item.role==="talent"));setStats(data.stats)}}finally{setLoading(false)}};
 
   const openAuth = (mode: AuthMode) => {
     setAuthMode(mode);
     setNotice("");
     setAuthOpen(true);
+    setChallengeId("");
     setMenuOpen(false);
   };
 
-  const submitAuth = (event: FormEvent<HTMLFormElement>) => {
+  const submitAuth = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const data = new FormData(event.currentTarget);
-    const email = String(data.get("email") || "");
-    const name = String(data.get("name") || email.split("@")[0] || "Участник");
-    window.localStorage.setItem("motisquad-user", name);
-    setUserName(name);
-    setAuthOpen(false);
-    setAccountOpen(true);
+    setNotice("Отправляем код…");
+    const payload=authMode==="register"?{name:String(data.get("name")),email:String(data.get("email")),password:String(data.get("password")),role:String(data.get("path"))}:{email:String(data.get("email")),password:String(data.get("password"))};
+    const response=await fetch(`/api/auth/${authMode==="register"?"register":"login"}`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload)});
+    const result=await response.json();if(!response.ok){setNotice(result.error||"Не удалось продолжить");return}setChallengeId(result.challengeId);setChallengeEmail(result.email);setNotice("");
   };
 
-  const signOut = () => {
-    window.localStorage.removeItem("motisquad-user");
-    setUserName("");
+  const verifyCode=async(event:FormEvent<HTMLFormElement>)=>{event.preventDefault();const data=new FormData(event.currentTarget);setNotice("Проверяем код…");const response=await fetch("/api/auth/verify",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({challengeId,code:String(data.get("code"))})});const result=await response.json();if(!response.ok){setNotice(result.error||"Неверный код");return}setUser(result.user);setPath(result.user.role);setAuthOpen(false);setAccountOpen(true);setNotice("")};
+
+  const signOut = async () => {
+    await fetch("/api/auth/logout",{method:"POST"});setUser(null);
     setAccountOpen(false);
   };
 
@@ -144,7 +173,7 @@ export default function Home() {
       <section className="hero" id="top">
         <div className="eyebrow"><span>Некоммерческое комьюнити</span><b>Для тех, кто хочет создавать</b></div>
         <div className="hero-grid">
-          <h1>Find your<br />next build</h1>
+          <h1>Find your<br />team</h1>
           <div className="hero-side">
             <p>Найдите не вакансию,<br />а людей для общего дела.</p>
             <span className="hero-index">01 — место встречи</span>
@@ -161,10 +190,10 @@ export default function Home() {
           </button>
         </div>
 
-        <form className="search-bar" id="search" onSubmit={(event) => { event.preventDefault(); setResultsOpen(true); document.getElementById("projects")?.scrollIntoView({ behavior: "smooth" }); }}>
-          <label><span>{path === "talent" ? "Роль" : "Специалист"}</span><select aria-label="Специализация"><option>{path === "talent" ? "Любая роль" : "Любая специализация"}</option><option>Разработка</option><option>Дизайн</option><option>Продукт</option><option>Аналитика</option></select></label>
-          <label><span>Уровень</span><select aria-label="Уровень опыта"><option>Без опыта</option><option>Junior</option></select></label>
-          <label><span>Формат</span><select aria-label="Формат участия"><option>Удалённо</option><option>Гибрид</option><option>Офлайн</option></select></label>
+        <form className="search-bar" id="search" onSubmit={(event) => { event.preventDefault();const data=new FormData(event.currentTarget);void loadPublic(new URLSearchParams({specialization:String(data.get("specialization")),level:String(data.get("level")),format:String(data.get("format"))})); setResultsOpen(true); document.getElementById("projects")?.scrollIntoView({ behavior: "smooth" }); }}>
+          <label><span>{path === "talent" ? "Роль" : "Специалист"}</span><select name="specialization" aria-label="Специализация"><option>{path === "talent" ? "Любая роль" : "Любая специализация"}</option><option>Разработка</option><option>Дизайн</option><option>Продукт</option><option>Аналитика</option></select></label>
+          <label><span>Уровень</span><select name="level" aria-label="Уровень опыта"><option>Без опыта</option><option>Junior</option></select></label>
+          <label><span>Формат</span><select name="format" aria-label="Формат участия"><option>Удалённо</option><option>Гибрид</option><option>Офлайн</option></select></label>
           <button type="submit">{path === "talent" ? "Найти проекты" : "Найти участников"}<span>→</span></button>
         </form>
       </section>
@@ -178,14 +207,14 @@ export default function Home() {
       </section>
 
       <section className="metrics" aria-label="Статистика сообщества">
-        <div><strong>128</strong><span>активных проектов</span></div>
-        <div><strong>406</strong><span>участников в поиске</span></div>
+        <div><strong>{loading?"—":stats.projects}</strong><span>активных проектов сейчас</span></div>
+        <div><strong>{loading?"—":stats.talent}</strong><span>участников в поиске сейчас</span></div>
         <div><strong>0 ₽</strong><span>за поиск команды</span></div>
       </section>
 
       <section className="definition" id="principles">
         <span className="section-kicker">02 — наш принцип</span>
-        <p><em>единомышленник</em> — это <strong>человек, который разделяет чьи-то мысли, взгляды, убеждения или цели.</strong> Также это слово может означать соучастника или сообщника в каком-либо общем деле.</p>
+        <p><em>единомышленник</em> — это <strong>человек, который разделяет чьи-то мысли, взгляды, убеждения или цели.</strong> также это слово может означать соучастника или сообщника в каком-либо общем деле.</p>
         <div className="definition-note">Мотисквад — не биржа вакансий. Здесь нет зарплат, оплаты доступа и найма. Только люди, которые хотят вместе создавать IT-продукты и получать первый реальный опыт.</div>
       </section>
 
@@ -195,24 +224,25 @@ export default function Home() {
           <button className="underlined" onClick={() => setResultsOpen(true)}>Смотреть весь каталог <span>↗</span></button>
         </div>
         <div className="catalog-list" id="people">
-          {(path === "talent" ? projects : talent).map((item, index) => path === "talent" ? (
-            <article className="project-row" key={(item as typeof projects[0]).name}>
-              <div className="project-brand" style={{ background: (item as typeof projects[0]).accent }}>{(item as typeof projects[0]).mark}</div>
-              <div><span>{(item as typeof projects[0]).name}</span><small>{(item as typeof projects[0]).category}</small></div>
-              <h3>{(item as typeof projects[0]).title}</h3>
-              <div className="row-meta"><span>{(item as typeof projects[0]).level}</span><span>{(item as typeof projects[0]).format}</span><span>{(item as typeof projects[0]).team}</span></div>
-              <button onClick={() => userName ? setAccountOpen(true) : openAuth("register")} aria-label={`Открыть проект ${(item as typeof projects[0]).name}`}>↗</button>
+          {(path === "talent" ? projects : talent).map((item) => path === "talent" ? (
+            <article className="project-row" key={(item as Project).id}>
+              <div className="project-brand" style={{ background: "#D6F238" }}>{(item as Project).name.slice(0,1).toUpperCase()}</div>
+              <div><span>{(item as Project).name}</span><small>{(item as Project).category}</small></div>
+              <h3>{(item as Project).title}</h3>
+              <div className="row-meta"><span>{(item as Project).level}</span><span>{(item as Project).format}</span><span>{(item as Project).teamSize} в команде</span></div>
+              <button onClick={() => user ? setAccountOpen(true) : openAuth("register")} aria-label={`Открыть проект ${(item as Project).name}`}>↗</button>
             </article>
           ) : (
-            <article className="project-row person-row" key={(item as typeof talent[0]).name}>
-              <div className="person-avatar">{(item as typeof talent[0]).initials}</div>
-              <div><span>{(item as typeof talent[0]).name}</span><small>{(item as typeof talent[0]).role}</small></div>
-              <h3>{(item as typeof talent[0]).stack}</h3>
-              <div className="row-meta"><span>{(item as typeof talent[0]).level}</span><span>Открыт к проектам</span></div>
-              <button onClick={() => userName ? setAccountOpen(true) : openAuth("register")} aria-label={`Открыть профиль ${(item as typeof talent[0]).name}`}>↗</button>
+            <article className="project-row person-row" key={(item as Talent).id}>
+              <div className="person-avatar">{(item as Talent).name.split(" ").map(v=>v[0]).join("").slice(0,2)}</div>
+              <div><span>{(item as Talent).name}</span><small>{(item as Talent).specialization}</small></div>
+              <h3>{(item as Talent).stack||"Готов рассказать о навыках"}</h3>
+              <div className="row-meta"><span>{(item as Talent).level}</span><span>{(item as Talent).format}</span></div>
+              <button onClick={() => user ? setAccountOpen(true) : openAuth("register")} aria-label={`Открыть профиль ${(item as Talent).name}`}>↗</button>
             </article>
           ))}
         </div>
+        {!loading && (path==="talent"?projects:talent).length===0 && <div className="empty-state"><strong>Пока здесь пусто.</strong><span>{path==="talent"?"Станьте первым основателем, который опубликует проект.":"Станьте первым участником, который откроет профиль для команды."}</span><button onClick={()=>user?setAccountOpen(true):openAuth("register")}>Опубликоваться →</button></div>}
         {resultsOpen && <div className="result-note">Показаны лучшие совпадения по вашим фильтрам. Создайте профиль, чтобы связаться с командой.</div>}
       </section>
 
@@ -236,37 +266,37 @@ export default function Home() {
       <footer><a className="brand" href="#top"><span>моти</span>сквад<i /></a><p>Сообщество для первых IT-проектов.<br />Екатеринбург · 2026</p><div><a href="#projects">Проекты</a><a href="#people">Участники</a><button onClick={() => openAuth("login")}>Войти</button></div></footer>
 
       {authOpen && (
-        <div className="modal-backdrop" role="presentation" onMouseDown={() => setAuthOpen(false)}>
-          <section className="auth-modal" role="dialog" aria-modal="true" aria-labelledby="auth-title" onMouseDown={(event) => event.stopPropagation()}>
+        <div className="modal-backdrop" role="button" tabIndex={0} aria-label="Закрыть окно" onKeyDown={(event)=>{if(event.key==="Escape"||event.key==="Enter")setAuthOpen(false)}} onMouseDown={() => setAuthOpen(false)}>
+          <section className="auth-modal" role="dialog" aria-modal="true" aria-labelledby="auth-title">
             <button className="modal-close" onClick={() => setAuthOpen(false)} aria-label="Закрыть">×</button>
             <span className="section-kicker">Личный кабинет</span>
-            <h2 id="auth-title">{authMode === "register" ? "Сначала познакомимся" : "С возвращением"}</h2>
-            <p>{authMode === "register" ? "Создайте профиль участника или основателя — это бесплатно." : "Войдите, чтобы продолжить собирать свою команду."}</p>
-            <div className="auth-tabs"><button className={authMode === "register" ? "active" : ""} onClick={() => setAuthMode("register")}>Регистрация</button><button className={authMode === "login" ? "active" : ""} onClick={() => setAuthMode("login")}>Вход</button></div>
-            <form onSubmit={submitAuth}>
-              {authMode === "register" && <><label>Как вас зовут<input name="name" required placeholder="Имя и фамилия" autoFocus /></label><fieldset><legend>Кто вы?</legend><label><input type="radio" name="path" value="talent" defaultChecked={path === "talent"} /> Хочу в команду</label><label><input type="radio" name="path" value="founder" defaultChecked={path === "founder"} /> Собираю команду</label></fieldset></>}
-              <label>Электронная почта<input name="email" type="email" required placeholder="name@example.ru" autoFocus={authMode === "login"} /></label>
-              <label>Пароль<input name="password" type="password" minLength={6} required placeholder="Минимум 6 символов" /></label>
+            <h2 id="auth-title">{challengeId?"Проверьте почту":authMode === "register" ? "Сначала познакомимся" : "С возвращением"}</h2>
+            <p>{challengeId?`Мы отправили шестизначный код на ${challengeEmail}.`:authMode === "register" ? "Создайте защищённый профиль участника или основателя — это бесплатно." : "После пароля мы подтвердим вход одноразовым кодом из письма."}</p>
+            {!challengeId&&<div className="auth-tabs"><button className={authMode === "register" ? "active" : ""} onClick={() => setAuthMode("register")}>Регистрация</button><button className={authMode === "login" ? "active" : ""} onClick={() => setAuthMode("login")}>Вход</button></div>}
+            {challengeId?<form onSubmit={verifyCode} className="code-form">
+              <label>Код из письма<input name="code" inputMode="numeric" pattern="[0-9]{6}" maxLength={6} required placeholder="000000" autoComplete="one-time-code" /></label>
+              {notice&&<span className="form-notice">{notice}</span>}<button className="submit-button" type="submit">Подтвердить и войти <span>→</span></button>
+              <button type="button" className="signout" onClick={()=>setChallengeId("")}>Изменить данные</button>
+            </form>:<form onSubmit={submitAuth}>
+              {authMode === "register" && <><label>Как вас зовут<input name="name" required placeholder="Имя и фамилия" /></label><fieldset><legend>Кто вы?</legend><label><input type="radio" name="path" value="talent" defaultChecked={path === "talent"} /> Хочу в команду</label><label><input type="radio" name="path" value="founder" defaultChecked={path === "founder"} /> Собираю команду</label></fieldset></>}
+              <label>Электронная почта<input name="email" type="email" required placeholder="name@example.ru" /></label>
+              <label>Пароль<input name="password" type="password" minLength={12} maxLength={128} required placeholder="От 12 символов, буквы и цифры" autoComplete={authMode==="register"?"new-password":"current-password"} /></label>
               {notice && <span className="form-notice">{notice}</span>}
               <button className="submit-button" type="submit">{authMode === "register" ? "Создать аккаунт" : "Войти"}<span>→</span></button>
-            </form>
+            </form>}
             <small className="privacy">Продолжая, вы соглашаетесь бережно относиться к другим участникам сообщества.</small>
           </section>
         </div>
       )}
 
       {accountOpen && (
-        <div className="modal-backdrop account-backdrop" role="presentation" onMouseDown={() => setAccountOpen(false)}>
-          <section className="account-panel" role="dialog" aria-modal="true" aria-labelledby="account-title" onMouseDown={(event) => event.stopPropagation()}>
+        <div className="modal-backdrop account-backdrop" role="button" tabIndex={0} aria-label="Закрыть кабинет" onKeyDown={(event)=>{if(event.key==="Escape"||event.key==="Enter")setAccountOpen(false)}} onMouseDown={() => setAccountOpen(false)}>
+          <section className="account-panel" role="dialog" aria-modal="true" aria-labelledby="account-title">
             <button className="modal-close" onClick={() => setAccountOpen(false)} aria-label="Закрыть">×</button>
             <span className="section-kicker">Ваш кабинет</span>
             <h2 id="account-title">Привет, {userName}.</h2>
-            <p>Профиль создан. Добавьте пару деталей — так совпадения станут точнее.</p>
-            <div className="profile-progress"><span><b>Профиль заполнен</b><em>40%</em></span><i><b /></i></div>
-            <div className="account-choice"><button className={path === "talent" ? "active" : ""} onClick={() => setPath("talent")}>Ищу команду</button><button className={path === "founder" ? "active" : ""} onClick={() => setPath("founder")}>Собираю команду</button></div>
-            <label className="account-field">Ваша специализация<select><option>Выберите направление</option><option>Разработка</option><option>Дизайн</option><option>Продукт</option><option>Аналитика</option></select></label>
-            <label className="account-field">Уровень<select><option>Без опыта</option><option>Junior</option></select></label>
-            <button className="submit-button" onClick={() => { setAccountOpen(false); setNotice("Профиль сохранён"); }}>Сохранить профиль <span>→</span></button>
+            <p>{user?.role==="founder"?"Опубликуйте проект — он сразу попадёт в реальный каталог.":"Откройте профиль — основатели увидят вашу карточку в каталоге."}</p>
+            <PublishForm role={user?.role||"talent"} name={userName} onSaved={async()=>{await loadPublic();setAccountOpen(false)}} />
             <button className="signout" onClick={signOut}>Выйти из аккаунта</button>
           </section>
         </div>

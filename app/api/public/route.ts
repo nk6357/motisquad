@@ -11,10 +11,10 @@ interface ProfileRow extends RowDataPacket { id:string;name:string;role:string;s
 export async function GET(request:Request){
   try{
     const {ipHash}=await requestFingerprint();await rateLimit(`public:${ipHash}`,120,60);
-    const url=new URL(request.url), specialization=url.searchParams.get("specialization"), level=url.searchParams.get("level"), format=url.searchParams.get("format");
+    const url=new URL(request.url), specialization=url.searchParams.get("specialization"), level=url.searchParams.get("level");
     const filters:string[]=[], values:unknown[]=[];
-    if(specialization&&specialization!=="Любая роль"&&specialization!=="Любая специализация"){filters.push("specialization=?");values.push(specialization)}
-    if(level){filters.push("level=?");values.push(level)} if(format){filters.push("format=?");values.push(format)}
+    if(specialization&&specialization!=="Не указано"&&specialization!=="Любая специализация"){filters.push("specialization=?");values.push(specialization)}
+    if(level){filters.push("level=?");values.push(level)}
     const projectWhere=`published=1 AND active=1${filters.length?` AND ${filters.join(" AND ")}`:""}`;
     const profileWhere=`p.published=1 AND u.status='active'${filters.length?` AND ${filters.map(f=>`p.${f}`).join(" AND ")}`:""}`;
     const [[projectCount],[talentCount],projects,profiles]=await Promise.all([

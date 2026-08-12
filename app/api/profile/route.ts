@@ -16,8 +16,8 @@ export async function PUT(request:Request){
     if(input.role!==auth.role)return noStore({error:"Роль аккаунта нельзя изменить через профиль"},{status:403});
     const connection=await getDb().getConnection();try{await connection.beginTransaction();
       await connection.execute("UPDATE users SET name=? WHERE id=?",[input.name,auth.userId]);
-      await connection.execute(`INSERT INTO profiles (user_id,specialization,level,format,bio,stack,published) VALUES (?,?,?,?,?,?,?)
-        ON DUPLICATE KEY UPDATE specialization=VALUES(specialization),level=VALUES(level),format=VALUES(format),bio=VALUES(bio),stack=VALUES(stack),published=VALUES(published)`,[auth.userId,input.specialization,input.level,input.format,input.bio,input.stack,input.published]);
+      await connection.execute(`INSERT INTO profiles (user_id,specialization,level,format,bio,stack,published) VALUES (?,?,?,'Удалённо',?,?,?)
+        ON DUPLICATE KEY UPDATE specialization=VALUES(specialization),level=VALUES(level),format=VALUES(format),bio=VALUES(bio),stack=VALUES(stack),published=VALUES(published)`,[auth.userId,input.specialization,input.level,input.bio,input.stack,input.published]);
       await connection.commit();}catch(error){await connection.rollback();throw error}finally{connection.release()}
     return noStore({ok:true});
   }catch(error){return apiError(error)}

@@ -1,3 +1,4 @@
+import "server-only";
 import mysql, { type Pool, type RowDataPacket } from "mysql2/promise";
 import { getEnv } from "./env";
 

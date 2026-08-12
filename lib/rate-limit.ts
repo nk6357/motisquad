@@ -1,3 +1,4 @@
+import "server-only";
 import { getDb } from "./db";
 import { getEnv } from "./env";
 import { hashSensitive } from "./security";

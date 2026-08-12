@@ -68,7 +68,7 @@ function SignalCanvas() {
 function PublishForm({role,name,onSaved}:{role:Path;name:string;onSaved:()=>Promise<void>}){
   const [status,setStatus]=useState("");
   const submit=async(event:FormEvent<HTMLFormElement>)=>{event.preventDefault();setStatus("Сохраняем…");const data=new FormData(event.currentTarget);
-    const common={specialization:String(data.get("specialization")),level:String(data.get("level")),format:String(data.get("format")),published:data.get("published")==="on"};
+    const common={specialization:String(data.get("specialization")),level:String(data.get("level")),published:data.get("published")==="on"};
     const payload=role==="founder"?{...common,name:String(data.get("projectName")),category:String(data.get("category")),title:String(data.get("title")),description:String(data.get("description")),teamSize:Number(data.get("teamSize"))}:{...common,name:String(data.get("name")),role,bio:String(data.get("bio")),stack:String(data.get("stack"))};
     const response=await fetch(role==="founder"?"/api/projects":"/api/profile",{method:role==="founder"?"POST":"PUT",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload)});const result=await response.json();if(!response.ok){setStatus(result.error||"Не удалось сохранить");return}setStatus("Опубликовано");await onSaved()};
   return <form className="publish-form" onSubmit={submit}>
@@ -83,9 +83,9 @@ function PublishForm({role,name,onSaved}:{role:Path;name:string;onSaved:()=>Prom
       <label className="account-field">Навыки<input name="stack" maxLength={220} placeholder="React · TypeScript · Figma" /></label>
       <label className="account-field">О себе<input name="bio" maxLength={700} placeholder="Что интересно создавать и какой опыт уже есть" /></label>
     </>}
-    <label className="account-field">Направление<select name="specialization"><option>Разработка</option><option>Дизайн</option><option>Продукт</option><option>Аналитика</option></select></label>
-    <label className="account-field">Уровень<select name="level"><option>Без опыта</option><option>Junior</option></select></label>
-    <label className="account-field">Формат<select name="format"><option>Удалённо</option><option>Гибрид</option><option>Офлайн</option></select></label>
+    <label className="account-field">{role==="talent"?"Ваша роль":"Кого ищете"}<select name="specialization" defaultValue="" required><option value="" disabled>Выберите роль</option><option>Разработка</option><option>Дизайн</option><option>Продукт-менеджмент</option><option>Аналитика</option><option>Продвижение</option><option>Продажи</option><option>Юриспруденция</option><option>Другая роль</option></select></label>
+    <label className="account-field">Уровень<select name="level"><option>Без опыта</option><option>Есть опыт</option></select></label>
+    <div className="remote-note"><strong>Только удалённо</strong><span>мотисквад объединяет ребят из разных городов РФ, поэтому все команды работают дистанционно.</span></div>
     <label className="publish-check"><input name="published" type="checkbox" defaultChecked /> Опубликовать в общем каталоге</label>
     {status&&<span className="form-notice">{status}</span>}<button className="submit-button" type="submit">{role==="founder"?"Опубликовать проект":"Опубликовать профиль"}<span>→</span></button>
   </form>
@@ -171,7 +171,7 @@ export default function Home() {
       </header>
 
       <section className="hero" id="top">
-        <div className="eyebrow"><span>Некоммерческое комьюнити</span><b>Для тех, кто хочет создавать</b></div>
+        <div className="eyebrow"><span>Сервис для молодых и амбициозных ребят из РФ</span><b>Для тех, кто хочет создавать</b></div>
         <div className="hero-grid">
           <h1>Find your<br />team</h1>
           <div className="hero-side">
@@ -181,7 +181,7 @@ export default function Home() {
         </div>
 
         <div className="path-picker" aria-label="Выберите свою роль">
-          <div className="path-intro"><span>С чего начнём?</span><p>Выберите, кто вы — мы покажем подходящих людей или проекты.</p></div>
+          <div className="path-intro"><span>С чего начнём?</span><p>Выберите, кто вы — мы покажем подходящих людей или проекты со всей России.</p></div>
           <button className={path === "talent" ? "path-card active" : "path-card"} onClick={() => selectPath("talent")}>
             <span className="path-number">01</span><strong>Хочу в команду</strong><small>Найти проект и единомышленников</small><i>↘</i>
           </button>
@@ -190,19 +190,19 @@ export default function Home() {
           </button>
         </div>
 
-        <form className="search-bar" id="search" onSubmit={(event) => { event.preventDefault();const data=new FormData(event.currentTarget);void loadPublic(new URLSearchParams({specialization:String(data.get("specialization")),level:String(data.get("level")),format:String(data.get("format"))})); setResultsOpen(true); document.getElementById("projects")?.scrollIntoView({ behavior: "smooth" }); }}>
-          <label><span>{path === "talent" ? "Роль" : "Специалист"}</span><select name="specialization" aria-label="Специализация"><option>{path === "talent" ? "Любая роль" : "Любая специализация"}</option><option>Разработка</option><option>Дизайн</option><option>Продукт</option><option>Аналитика</option></select></label>
-          <label><span>Уровень</span><select name="level" aria-label="Уровень опыта"><option>Без опыта</option><option>Junior</option></select></label>
-          <label><span>Формат</span><select name="format" aria-label="Формат участия"><option>Удалённо</option><option>Гибрид</option><option>Офлайн</option></select></label>
+        <form className="search-bar" id="search" onSubmit={(event) => { event.preventDefault();const data=new FormData(event.currentTarget);void loadPublic(new URLSearchParams({specialization:String(data.get("specialization")),level:String(data.get("level"))})); setResultsOpen(true); document.getElementById("projects")?.scrollIntoView({ behavior: "smooth" }); }}>
+          <label><span>{path === "talent" ? "Роль" : "Специалист"}</span><select key={path} name="specialization" aria-label="Специализация" defaultValue={path === "talent" ? "Не указано" : "Любая специализация"}><option>{path === "talent" ? "Не указано" : "Любая специализация"}</option><option>Разработка</option><option>Дизайн</option><option>Продукт-менеджмент</option><option>Аналитика</option><option>Продвижение</option><option>Продажи</option><option>Юриспруденция</option><option>Другая роль</option></select></label>
+          <label><span>Уровень</span><select name="level" aria-label="Уровень опыта"><option>Без опыта</option><option>Есть опыт</option></select></label>
+          <div className="search-remote"><span>Формат</span><strong>Только удалённо</strong><small>Команды по всей РФ</small></div>
           <button type="submit">{path === "talent" ? "Найти проекты" : "Найти участников"}<span>→</span></button>
         </form>
       </section>
 
       <section className="signal" aria-label="Сигнал сообщества">
-        <div className="signal-label"><strong>Career signal <i /></strong><span>Где прямо сейчас<br />рождаются команды.</span></div>
-        <div className="signal-stat stat-one"><b>Разработка</b><span>42%</span></div>
-        <div className="signal-stat stat-two"><b>Дизайн</b><span>27%</span></div>
-        <div className="signal-stat stat-three"><b>Продукт</b><span>31%</span></div>
+        <div className="signal-label"><strong>Right people for right team <i /></strong><span>Где прямо сейчас<br />рождаются команды.</span></div>
+        <div className="signal-stat stat-one"><b>Разработка</b><span>вместе</span></div>
+        <div className="signal-stat stat-two"><b>Дизайн</b><span>вместе</span></div>
+        <div className="signal-stat stat-three"><b>Продукт</b><span>вместе</span></div>
         <SignalCanvas />
       </section>
 
@@ -215,7 +215,7 @@ export default function Home() {
       <section className="definition" id="principles">
         <span className="section-kicker">02 — наш принцип</span>
         <p><em>единомышленник</em> — это <strong>человек, который разделяет чьи-то мысли, взгляды, убеждения или цели.</strong> также это слово может означать соучастника или сообщника в каком-либо общем деле.</p>
-        <div className="definition-note">Мотисквад — не биржа вакансий. Здесь нет зарплат, оплаты доступа и найма. Только люди, которые хотят вместе создавать IT-продукты и получать первый реальный опыт.</div>
+        <div className="definition-note">Мотисквад — сервис для молодых и амбициозных ребят из РФ. Это не биржа вакансий: здесь нет зарплат, оплаты доступа и найма. Только люди, которые хотят удалённо создавать IT-продукты и получать первый реальный опыт.</div>
       </section>
 
       <section className="catalog" id="projects">
@@ -252,7 +252,7 @@ export default function Home() {
           <h2>Не собеседование.<br />Первый разговор.</h2>
           <ol>
             <li><span>01</span><div><strong>Выберите сторону</strong><p>Расскажите, строите ли вы проект или хотите присоединиться.</p></div></li>
-            <li><span>02</span><div><strong>Заполните короткий профиль</strong><p>Навыки, интересы и уровень: без опыта или junior.</p></div></li>
+            <li><span>02</span><div><strong>Заполните короткий профиль</strong><p>Выберите роль, расскажите о навыках и укажите уровень: без опыта или есть опыт.</p></div></li>
             <li><span>03</span><div><strong>Найдите совпадение</strong><p>Напишите человеку и обсудите идею — без посредников.</p></div></li>
           </ol>
         </div>

@@ -1,3 +1,4 @@
+import "server-only";
 import bcrypt from "bcryptjs";
 import { createHash, randomBytes, randomInt, randomUUID, timingSafeEqual } from "node:crypto";
 import { SignJWT, jwtVerify } from "jose";

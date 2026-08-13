@@ -44,6 +44,10 @@ npm run dev
 
 Для первого запуска используется ящик `hazelmind@bk.ru`: SMTP-сервер `smtp.mail.ru`, защищённый порт `465`. В `SMTP_PASS` нужен отдельный пароль для внешнего приложения Mail, а не основной пароль от почты.
 
+### Автодеплой из GitHub
+
+Workflow `.github/workflows/deploy-beget.yml` следит за веткой `production-auth-beget`. После первоначальной настройки SSH добавьте в GitHub Secrets ключ `BEGET_SSH_PRIVATE_KEY`, отпечаток сервера `BEGET_SSH_KNOWN_HOSTS`, а в GitHub Variables — `BEGET_AUTODEPLOY_ENABLED=true`. Каждый следующий push подтянет код, применит схему MySQL, соберёт приложение и перезапустит Passenger. Production-секреты остаются только в серверном файле `.env.production`.
+
 ## Проверки перед публикацией
 
 ```bash

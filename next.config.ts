@@ -5,6 +5,10 @@ const scriptPolicy = process.env.NODE_ENV === "production" ? "script-src 'self' 
 const nextConfig: NextConfig = {
   output: "standalone",
   poweredByHeader: false,
+  experimental: {
+    cpus: 1,
+    webpackBuildWorker: false,
+  },
   async headers() {
     return [{ source:"/(.*)", headers:[
       { key:"X-Content-Type-Options", value:"nosniff" },

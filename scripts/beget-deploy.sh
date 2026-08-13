@@ -18,8 +18,10 @@ cp -R public .next/standalone/public
 cp -R .next/static .next/standalone/.next/static
 cp .env.production .next/standalone/.env.production
 
-NODE_BINARY="$(command -v node)"
 APP_ROOT="$(realpath .next/standalone)"
+NODE_BINARY="$APP_ROOT/node-runtime"
+cp "$(command -v node)" "$NODE_BINARY"
+chmod 755 "$NODE_BINARY"
 printf '%s\n' \
   "PassengerNodejs $NODE_BINARY" \
   "PassengerAppRoot $APP_ROOT" \

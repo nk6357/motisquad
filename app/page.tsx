@@ -67,6 +67,7 @@ function SignalCanvas() {
 
 function PublishForm({role,name,onSaved}:{role:Path;name:string;onSaved:()=>Promise<void>}){
   const [status,setStatus]=useState("");
+  const [detailsLength,setDetailsLength]=useState(0);
   const submit=async(event:FormEvent<HTMLFormElement>)=>{event.preventDefault();setStatus("Сохраняем…");const data=new FormData(event.currentTarget);
     const common={specialization:String(data.get("specialization")),level:String(data.get("level")),published:data.get("published")==="on"};
     const payload=role==="founder"?{...common,name:String(data.get("projectName")),category:String(data.get("category")),title:String(data.get("title")),description:String(data.get("description")),teamSize:Number(data.get("teamSize"))}:{...common,name:String(data.get("name")),role,bio:String(data.get("bio")),stack:String(data.get("stack"))};
@@ -76,12 +77,12 @@ function PublishForm({role,name,onSaved}:{role:Path;name:string;onSaved:()=>Prom
       <label className="account-field">Название проекта<input name="projectName" required minLength={2} maxLength={80} placeholder="Например, Locus" /></label>
       <label className="account-field">Категория<input name="category" required minLength={2} maxLength={80} placeholder="EdTech, AI, SocialTech…" /></label>
       <label className="account-field">Кого ищете<input name="title" required minLength={3} maxLength={120} placeholder="Frontend-разработчик" /></label>
-      <label className="account-field">О проекте<textarea name="description" required minLength={20} maxLength={1600} placeholder="Идея, этап и что предстоит сделать вместе" /></label>
+      <label className="account-field account-details">Расскажите о проекте<textarea name="description" required minLength={100} maxLength={2000} placeholder="Подробно расскажите о вашем проекте" onInput={(event)=>setDetailsLength(event.currentTarget.value.length)} />{detailsLength > 0 && (detailsLength < 100 || detailsLength > 2000) && <small className="character-hint invalid">от 100 до 2000 символов</small>}</label>
       <label className="account-field">Сейчас в команде<input name="teamSize" type="number" min={1} max={50} defaultValue={1} required /></label>
     </>:<>
       <label className="account-field">Имя<input name="name" required minLength={2} maxLength={80} defaultValue={name} /></label>
       <label className="account-field">Навыки<input name="stack" maxLength={220} placeholder="React · TypeScript · Figma" /></label>
-      <label className="account-field">О себе<input name="bio" maxLength={700} placeholder="Что интересно создавать и какой опыт уже есть" /></label>
+      <label className="account-field account-details">Подробно расскажите о себе<textarea name="bio" required minLength={100} maxLength={2000} placeholder="Подробно расскажите о себе и своих навыках" onInput={(event)=>setDetailsLength(event.currentTarget.value.length)} />{detailsLength > 0 && (detailsLength < 100 || detailsLength > 2000) && <small className="character-hint invalid">от 100 до 2000 символов</small>}</label>
     </>}
     <label className="account-field">{role==="talent"?"Ваша роль":"Кого ищете"}<select name="specialization" defaultValue="" required><option value="" disabled>Выберите роль</option><option>Разработка</option><option>Дизайн</option><option>Продукт-менеджмент</option><option>Аналитика</option><option>Продвижение</option><option>Продажи</option><option>Юриспруденция</option><option>Другая роль</option></select></label>
     <label className="account-field">Уровень<select name="level"><option>Без опыта</option><option>Есть опыт</option></select></label>
@@ -166,12 +167,12 @@ export default function Home() {
             <button className="text-button desktop-login" onClick={() => openAuth("login")}>Войти</button>
           )}
           <button className="join-button" onClick={() => userName ? setAccountOpen(true) : openAuth("register")}>{userName ? userName : "Создать аккаунт"}</button>
-          <button className="menu-button" onClick={() => setMenuOpen(!menuOpen)} aria-label="Открыть меню" aria-expanded={menuOpen}><span /><span /></button>
+          <button className={menuOpen ? "menu-button is-open" : "menu-button"} onClick={() => setMenuOpen(!menuOpen)} aria-label={menuOpen ? "Закрыть меню" : "Открыть меню"} aria-expanded={menuOpen}><span /><span /></button>
         </div>
       </header>
 
       <section className="hero" id="top">
-        <div className="eyebrow"><span>Сервис для молодых и амбициозных ребят из РФ</span><b>Для тех, кто хочет создавать</b></div>
+        <div className="eyebrow"><span>некоммерческое сообщество амбициозных ребят из РФ</span><b>Для тех, кто хочет создавать</b></div>
         <div className="hero-grid">
           <h1>Find your<br />team</h1>
           <div className="hero-side">
@@ -183,10 +184,10 @@ export default function Home() {
         <div className="path-picker" aria-label="Выберите свою роль">
           <div className="path-intro"><span>С чего начнём?</span><p>Выберите, кто вы — мы покажем подходящих людей или проекты со всей России.</p></div>
           <button className={path === "talent" ? "path-card active" : "path-card"} onClick={() => selectPath("talent")}>
-            <span className="path-number">01</span><strong>Хочу в команду</strong><small>Найти проект и единомышленников</small><i>↘</i>
+            <span className="path-number">01</span><strong>Я мот — хочу в команду</strong><small>Найти проект и единомышленников</small><i>↘</i>
           </button>
           <button className={path === "founder" ? "path-card active" : "path-card"} onClick={() => selectPath("founder")}>
-            <span className="path-number">02</span><strong>Собираю команду</strong><small>Найти начинающих участников</small><i>↘</i>
+            <span className="path-number">02</span><strong>Я основатель</strong><small>Собрать команду проекта</small><i>↘</i>
           </button>
         </div>
 
@@ -208,19 +209,19 @@ export default function Home() {
 
       <section className="metrics" aria-label="Статистика сообщества">
         <div><strong>{loading?"—":stats.projects}</strong><span>активных проектов сейчас</span></div>
-        <div><strong>{loading?"—":stats.talent}</strong><span>участников в поиске сейчас</span></div>
+        <div><strong>{loading?"—":stats.talent}</strong><span>мотов в поиске сейчас</span></div>
         <div><strong>0 ₽</strong><span>за поиск команды</span></div>
       </section>
 
       <section className="definition" id="principles">
         <span className="section-kicker">02 — наш принцип</span>
         <p><em>единомышленник</em> — это <strong>человек, который разделяет чьи-то мысли, взгляды, убеждения или цели.</strong> также это слово может означать соучастника или сообщника в каком-либо общем деле.</p>
-        <div className="definition-note">Мотисквад — сервис для молодых и амбициозных ребят из РФ. Это не биржа вакансий: здесь нет зарплат, оплаты доступа и найма. Только люди, которые хотят удалённо создавать IT-продукты и получать первый реальный опыт.</div>
+        <div className="definition-note">мотисквад — сообщество молодых и амбициозных ребят из РФ. Это не биржа вакансий: здесь нет зарплат, оплаты доступа и найма. Только люди, которые хотят удалённо создавать IT-продукты и получать первый реальный опыт. Создавай аккаунт и становись частью мотисквад</div>
       </section>
 
       <section className="catalog" id="projects">
         <div className="section-head">
-          <div><span className="section-kicker">03 — свежие совпадения</span><h2>{path === "talent" ? "Проекты ищут людей" : "Люди ищут проекты"}</h2></div>
+          <div><span className="section-kicker">03 — свежие совпадения</span><h2>{path === "talent" ? "Основатели ищут мотов" : "Моты ищут проекты"}</h2></div>
           <button className="underlined" onClick={() => setResultsOpen(true)}>Смотреть весь каталог <span>↗</span></button>
         </div>
         <div className="catalog-list" id="people">
@@ -242,7 +243,7 @@ export default function Home() {
             </article>
           ))}
         </div>
-        {!loading && (path==="talent"?projects:talent).length===0 && <div className="empty-state"><strong>Пока здесь пусто.</strong><span>{path==="talent"?"Станьте первым основателем, который опубликует проект.":"Станьте первым участником, который откроет профиль для команды."}</span><button onClick={()=>user?setAccountOpen(true):openAuth("register")}>Опубликоваться →</button></div>}
+        {!loading && (path==="talent"?projects:talent).length===0 && <div className="empty-state"><strong>Пока здесь пусто.</strong><span>{path==="talent"?"Станьте первым основателем, который опубликует проект.":"Станьте первым мотом, который откроет профиль для команды."}</span><button onClick={()=>user?setAccountOpen(true):openAuth("register")}>Опубликоваться →</button></div>}
         {resultsOpen && <div className="result-note">Показаны лучшие совпадения по вашим фильтрам. Создайте профиль, чтобы связаться с командой.</div>}
       </section>
 
@@ -271,14 +272,14 @@ export default function Home() {
             <button className="modal-close" onClick={() => setAuthOpen(false)} aria-label="Закрыть">×</button>
             <span className="section-kicker">Личный кабинет</span>
             <h2 id="auth-title">{challengeId?"Проверьте почту":authMode === "register" ? "Сначала познакомимся" : "С возвращением"}</h2>
-            <p>{challengeId?`Мы отправили шестизначный код на ${challengeEmail}.`:authMode === "register" ? "Создайте защищённый профиль участника или основателя — это бесплатно." : "После пароля мы подтвердим вход одноразовым кодом из письма."}</p>
+            <p>{challengeId?`Мы отправили шестизначный код на ${challengeEmail}.`:authMode === "register" ? "Создайте защищённый профиль мота или основателя — это бесплатно." : "После пароля мы подтвердим вход одноразовым кодом из письма."}</p>
             {!challengeId&&<div className="auth-tabs"><button className={authMode === "register" ? "active" : ""} onClick={() => setAuthMode("register")}>Регистрация</button><button className={authMode === "login" ? "active" : ""} onClick={() => setAuthMode("login")}>Вход</button></div>}
             {challengeId?<form onSubmit={verifyCode} className="code-form">
               <label>Код из письма<input name="code" inputMode="numeric" pattern="[0-9]{6}" maxLength={6} required placeholder="000000" autoComplete="one-time-code" /></label>
               {notice&&<span className="form-notice">{notice}</span>}<button className="submit-button" type="submit">Подтвердить и войти <span>→</span></button>
               <button type="button" className="signout" onClick={()=>setChallengeId("")}>Изменить данные</button>
             </form>:<form onSubmit={submitAuth}>
-              {authMode === "register" && <><label>Как вас зовут<input name="name" required placeholder="Имя и фамилия" /></label><fieldset><legend>Кто вы?</legend><label><input type="radio" name="path" value="talent" defaultChecked={path === "talent"} /> Хочу в команду</label><label><input type="radio" name="path" value="founder" defaultChecked={path === "founder"} /> Собираю команду</label></fieldset></>}
+              {authMode === "register" && <><label>Как вас зовут<input name="name" required minLength={2} maxLength={80} placeholder="Имя и фамилия" autoComplete="name" /></label><fieldset><legend>Кто вы?</legend><label><input type="radio" name="path" value="talent" defaultChecked={path === "talent"} /> Мот — хочу в команду</label><label><input type="radio" name="path" value="founder" defaultChecked={path === "founder"} /> Основатель — собираю команду</label></fieldset></>}
               <label>Электронная почта<input name="email" type="email" required placeholder="name@example.ru" /></label>
               <label>Пароль<input name="password" type="password" minLength={12} maxLength={128} required placeholder="От 12 символов, буквы и цифры" autoComplete={authMode==="register"?"new-password":"current-password"} /></label>
               {notice && <span className="form-notice">{notice}</span>}

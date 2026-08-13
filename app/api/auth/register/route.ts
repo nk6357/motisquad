@@ -19,9 +19,9 @@ export async function POST(request: Request) {
     try { await connection.beginTransaction();
       await connection.execute("INSERT INTO users (id,email,password_hash,name,role) VALUES (?,?,?,?,?)",[userId,input.email,await hashPassword(input.password),input.name,input.role]);
       await connection.execute("INSERT INTO auth_challenges (id,user_id,purpose,code_hash,expires_at) VALUES (?,?,'verify',?,DATE_ADD(UTC_TIMESTAMP(),INTERVAL 10 MINUTE))",[challengeId,userId,hashSensitive(code,getEnv().EMAIL_CODE_PEPPER)]);
+      await sendCode(input.email,code,"verify");
       await connection.commit();
     } catch(error){ await connection.rollback(); throw error; } finally { connection.release(); }
-    await sendCode(input.email,code,"verify");
     return noStore({ challengeId, email:input.email, next:"verify" },{ status:201 });
   } catch(error){ return apiError(error); }
 }
